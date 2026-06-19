@@ -1,0 +1,6 @@
+applications:
+  - name: MyApp
+    image: my-app:latest
+
+  - name: MyUI
+    image: nginx

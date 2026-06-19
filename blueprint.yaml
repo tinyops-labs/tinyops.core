@@ -1,0 +1,7 @@
+applications:
+  - name: tinyops-ui
+    image: tarik56/tinyops-ui:1.0.0
+    ssl: true
+    domain: tinyops-ui.yourdomain.com
+    env:
+      API_HOST: http://tinyops:5000

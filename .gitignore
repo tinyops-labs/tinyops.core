@@ -1,0 +1,9 @@
+.idea
+__pycache__/
+generated_configs/*.conf
+*.log
+*.dat
+*.dir
+*.db.*
+*.bak
+.cursor

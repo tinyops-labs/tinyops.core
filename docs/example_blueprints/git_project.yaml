@@ -1,0 +1,11 @@
+applications:
+  - name: MyApp
+    git:
+      url: git@github.com:user-name/my-project.git
+      branch: main
+    domain: my-app.my-domain.com
+    ssl: true
+    image: my-app:latest
+    replicas: 3
+    env:
+      SECRET_KEY: my-secret-key

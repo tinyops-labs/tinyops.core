@@ -1,0 +1,83 @@
+events {
+    worker_connections 1024;
+}
+
+http {
+    include /etc/nginx/mime.types;
+
+    {% for app_name, app_data in applications.items() -%}
+    upstream {{ app_name|lower }} {
+        {% for upstream in app_data.upstreams -%}
+            server {{ upstream.atom_name }}:{{ upstream.atom_port }};
+        {% endfor -%}
+    }
+    {% endfor %}
+
+    {% for app_name, app_data in applications.items() -%}
+    {% if app_data.domain -%}
+    server {
+        listen 80;
+        server_name {{ app_data.domain }};
+
+        location /.well-known/acme-challenge/ {
+            root /usr/share/nginx/html;
+        }
+
+        {% if not app_data.ssl or not app_data.ssl_ready -%}
+        location / {
+            proxy_pass http://{{ app_name|lower }}/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+        }
+        
+        location /health {
+            return 200 "OK";
+        }
+        {% endif %}
+
+        {% if app_data.ssl and app_data.ssl_ready -%}
+        return 301 https://$host$request_uri;
+        {% endif %}
+
+    }
+    {% endif %}
+    {% endfor -%}
+
+    {% for app_name, app_data in applications.items() -%}
+    {% if app_data.domain and app_data.ssl and app_data.ssl_ready -%}
+    server {
+        listen 443 ssl;
+        http2 on;
+        server_name {{ app_data.domain }};
+
+        ssl_certificate     /etc/letsencrypt/live/{{ app_data.domain }}/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/{{ app_data.domain }}/privkey.pem;
+
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_prefer_server_ciphers on;
+        ssl_ciphers HIGH:!aNULL:!MD5;
+
+        location / {
+            proxy_pass http://{{ app_name|lower }}/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto https;
+        }
+
+        location /health {
+            return 200 "OK";
+        }
+    }
+    {% endif %}
+    {% endfor -%}
+
+    server {
+        listen 80 default_server;
+
+        location / {
+            return 200 'TinyOps';
+            add_header Content-Type text/html;
+        }
+    }
+}

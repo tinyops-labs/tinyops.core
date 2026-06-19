@@ -1,0 +1,2 @@
+class Global:
+    sync = True
