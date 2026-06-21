@@ -36,7 +36,9 @@ http {
         {% endif %}
 
         {% if app_data.ssl and app_data.ssl_ready -%}
-        return 301 https://$host$request_uri;
+        location / {
+            return 301 https://$host$request_uri;
+        }
         {% endif %}
 
     }
