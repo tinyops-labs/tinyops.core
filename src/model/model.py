@@ -33,7 +33,7 @@ class Model:
     def _create_gateway(self):
         self._parser.applications.insert(0, dict(
             name="TINYOPS_GATEWAY",
-            image="tarik56/tinyops-gateway:1.0.0",
+            image="tarik56/tinyops-gateway:1.1.0",
             network="tinyops_network",
             replicas=1,
             ports={
