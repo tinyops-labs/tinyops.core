@@ -4,6 +4,7 @@ PyYAML==6.0.1
 jinja2==3.1.4
 fastapi==0.116.2
 fastapi-mcp==0.4.0
+mcp>=1.12.0,<2
 uvicorn==0.32.1
 httpx==0.28.1
 psutil==7.2.1
