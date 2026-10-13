@@ -35,7 +35,7 @@ class GitWatcher:
                 self._check_if_new_revision_available()
             except Exception:
                 pass
-            time.sleep(2)
+            time.sleep(30)
 
     def _update_repos_list(self):
         repos = db.get_list("repos")
@@ -57,34 +57,44 @@ class GitWatcher:
             url = repo.get("url")
             branch = repo.get("branch")
             repo_name = repo.get("repo_name")
-            self._pull_repository(repo_name)
-            current_local_revision = self._get_current_local_revision(repo_name)
+            remote_revision = self._get_remote_revision(url, branch)
+            if not remote_revision:
+                continue
+            if remote_revision == db.get(repo_name, "revision"):
+                continue
+            if not self._pull_repository(repo_name):
+                continue
+            info(f"New revision available for {repo_name}, creating Pipeline...")
+            db.set(repo_name, "revision", remote_revision)
+            db.append_to_list("pipelines", dict(
+                id=Utils.generate_random_string(16),
+                repo_name=repo_name,
+                git_url=url,
+                git_branch=branch,
+                directory=str(self.repos_dir / repo_name),
+                image_name=f"{repo_name}-{remote_revision}",
+                created=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                finished=None,
+                duration=None,
+                log=None,
+                status="pending"
+            ))
 
-            if current_local_revision != db.get(repo_name, "revision"):
-                info(f"New revision available for {repo_name}, creating Pipeline...")
-                db.set(repo_name, "revision", current_local_revision)
-                db.append_to_list("pipelines", dict(
-                    id=Utils.generate_random_string(16),
-                    repo_name=repo_name,
-                    git_url=url,
-                    git_branch=branch,
-                    directory=str(self.repos_dir / repo_name),
-                    image_name=f"{repo_name}-{current_local_revision}",
-                    created=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    finished=None,
-                    duration=None,
-                    log=None,
-                    status="pending"
-                ))
-
-    def _get_current_local_revision(self, repo_name):
+    def _get_remote_revision(self, url, branch):
         result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=self.repos_dir / repo_name,
+            ["git", "ls-remote", url, f"refs/heads/{branch}"],
+            env=self.env,
             capture_output=True,
             text=True
         )
-        return result.stdout.strip()
+        if result.returncode != 0:
+            error(f"Failed to ls-remote {url} ({branch}): {result.stderr.strip()}")
+            return None
+        line = result.stdout.strip().splitlines()
+        if not line:
+            error(f"No remote revision found for {url} ({branch})")
+            return None
+        return line[0].split()[0]
 
     def _pull_repository(self, repo_name):
         repo_path = self.repos_dir / repo_name
@@ -97,6 +107,8 @@ class GitWatcher:
         )
         if result.returncode != 0:
             error(f"Failed to pull repository {repo_name}: {result.stderr.strip()}")
+            return False
+        return True
 
     def _clone_repositories(self):
         for repo in self.repos:
